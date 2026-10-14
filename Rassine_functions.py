@@ -11,7 +11,7 @@ from __future__ import print_function
 
 import matplotlib
 
-matplotlib.use('Qt5Agg',force=True)
+#matplotlib.use('Qt5Agg',force=True)
 import glob as glob
 import multiprocessing as multicpu
 import os
@@ -33,15 +33,12 @@ from scipy.signal import savgol_filter
 from scipy.stats import norm
 
 import warnings
-try:
-    np.warnings.filterwarnings('ignore', category=RuntimeWarning)
-except:
-    warnings.filterwarnings('ignore', category=RuntimeWarning)
+#warnings.filterwarnings('ignore', category=RuntimeWarning)
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+
 
 py_ver = platform.python_version_tuple()
 py_ver = str(int(py_ver[0])+int(py_ver[1])//10)+'.'+py_ver[1]
-
-
 
 # =============================================================================
 # FUNCTIONS LIBRARY
@@ -276,29 +273,26 @@ def grouping(array, tresh, num):
     difference = abs(np.diff(array))
     cluster = (difference<tresh)
     indice = np.arange(len(cluster))[cluster]
-
-    if len(indice):
-        j = 0
-        border_left = [indice[0]]
-        border_right = []
-        while j < len(indice)-1:
-            if indice[j]==indice[j+1]-1:
-                j+=1
-            else:
-                border_right.append(indice[j])
-                border_left.append(indice[j+1])
-                j+=1
-        border_right.append(indice[-1])        
-        border = np.array([border_left,border_right]).T
-        border = np.hstack([border,(1+border[:,1]-border[:,0])[:,np.newaxis]])
-        
-        kept = []
-        for j in range(len(border)):
-            if border[j,-1]>=num:
-                kept.append(array[border[j,0]:border[j,1]+2])
-        return np.array(kept,dtype='object'), border 
-    else:
-        return np.array([]), np.array([[0,0,0]])
+    
+    j = 0
+    border_left = [indice[0]]
+    border_right = []
+    while j < len(indice)-1:
+        if indice[j]==indice[j+1]-1:
+            j+=1
+        else:
+            border_right.append(indice[j])
+            border_left.append(indice[j+1])
+            j+=1
+    border_right.append(indice[-1])        
+    border = np.array([border_left,border_right]).T
+    border = np.hstack([border,(1+border[:,1]-border[:,0])[:,np.newaxis]])
+    
+    kept = []
+    for j in range(len(border)):
+        if border[j,-1]>=num:
+            kept.append(array[border[j,0]:border[j,1]+2])
+    return np.array(kept,dtype='object'), border 
 
 
 def local_max(spectre,vicinity):
@@ -1065,7 +1059,7 @@ def preprocess_fits(files_to_process, instrument='HARPS', plx_mas=0, final_sound
     counter = 0
     init_time = time.time()
     
-    if (instrument=='HARPS')|(instrument=='CORALIE')|(instrument=='HARPN')|(instrument=='SOPHIE'):
+    if (instrument=='HARPS')|(instrument=='CORALIE')|(instrument=='HARPN'):
         
         directory0, dustbin = os.path.split(files_to_process[0])
         try:
@@ -1108,9 +1102,7 @@ def preprocess_fits(files_to_process, instrument='HARPS', plx_mas=0, final_sound
             kw = 'ESO'
             if instrument=='HARPN':
                 kw='TNG'
-            elif instrument=='SOPHIE':
-                kw='OHP'
-            
+
             berv = header['HIERARCH '+kw+' DRS BERV']
             lamp = header['HIERARCH '+kw+' DRS CAL TH LAMP OFFSET']
             try:
@@ -1158,20 +1150,9 @@ def preprocess_fits(files_to_process, instrument='HARPS', plx_mas=0, final_sound
                 os.system('mkdir '+directory+'/PREPROCESSED/')
 
             header = fits.getheader(spectrum_name) # load the fits header
-            data_fits = fits.getdata(spectrum_name)
-
-            try:
-                grid = data_fits['wavelength_air'].astype('float64') # the grid of wavelength of your spectrum (assumed equidistant in lambda)
-                spectre = data_fits['flux'].astype('float64') # the flux of your spectrum
-                spectre_error = data_fits['error'].astype('float64') # the flux of your spectrum
-            except: #SFLX ESO ARCHIVE
-                grid = data_fits['wave_air'][0].astype('float64') # the grid of wavelength of your spectrum (assumed equidistant in lambda)
-                spectre = data_fits['flux_el'][0].astype('float64') # the flux of your spectrum
-                spectre_error = data_fits['err_el'][0].astype('float64') # the flux of your spectrum
-            
-            spectre_error[spectre!=spectre] = 0
-            spectre[spectre!=spectre] = 0
-
+            spectre = fits.getdata(spectrum_name)['flux'].astype('float64') # the flux of your spectrum
+            spectre_error = fits.getdata(spectrum_name)['error'].astype('float64') # the flux of your spectrum
+            grid = fits.getdata(spectrum_name)['wavelength_air'].astype('float64') # the grid of wavelength of your spectrum (assumed equidistant in lambda)
             begin = np.min(np.arange(len(spectre))[spectre>0]) # remove border spectrum with 0 value
             end = np.max(np.arange(len(spectre))[spectre>0])   # remove border spectrum with 0 value
             grid = grid[begin:end+1]
@@ -1181,19 +1162,11 @@ def preprocess_fits(files_to_process, instrument='HARPS', plx_mas=0, final_sound
             wave_max = np.max(grid)
             spectre_step = np.mean(np.diff(grid))
             mjd = header['MJD-OBS']
-            
-            kw = 'ESO'
-            if 'HIERARCH TNG QC BERV' in header:
-                kw = 'TNG'
-
+            berv = header['HIERARCH ESO QC BERV']
             lamp = 0 #header['HIERARCH ESO DRS CAL TH LAMP OFFSET'] no yet available
             try:
-                berv = float(header['HIERARCH '+kw+' QC BERV'])
-            except:
-                berv = 0
-            try:
-                pma = header['HIERARCH '+kw+' TEL TARG PMA']*1000
-                pmd = header['HIERARCH '+kw+' TEL TARG PMD']*1000
+                pma = header['HIERARCH ESO TEL TARG PMA']*1000
+                pmd = header['HIERARCH ESO TEL TARG PMD']*1000
             except:
                 pma=0
                 pmd=0
@@ -1530,17 +1503,14 @@ def preprocess_stack(files_to_process, bin_length = 1, dbin = 0, make_master=Tru
         hole_right =  try_field(file_arbitrary,'hole_right')
         acc_sec =  try_field(file_arbitrary,'acc_sec')
         stack = 0
-        stack_err = 0
         bolo = []     
         rv_shift = []
         name_root_files = []
         for file in files_to_process[g]:
             f = pd.read_pickle(file)
             flux = f['flux']    
-            flux_err = f['flux_err']    
             rv_shift.append(try_field(f,'RV_shift'))
             stack += flux
-            stack_err += flux_err**2
             bolo.append(np.nansum(flux)/len(flux))
             name_root_files.append(file)
         
@@ -1558,7 +1528,6 @@ def preprocess_stack(files_to_process, bin_length = 1, dbin = 0, make_master=Tru
         lamp_w = np.sum(lamp[g]*bolo)/np.sum(bolo)
         all_berv.append(berv_w)
         out = {'flux':stack,
-               'flux_err':np.sqrt(abs(stack_err)),
                'jdb':jdb_w, #mjd weighted average by bolo flux
                'mjd':jdb_w - 0.5, #mjd weighted average by bolo flux
                'berv':berv_w,
@@ -1572,7 +1541,10 @@ def preprocess_stack(files_to_process, bin_length = 1, dbin = 0, make_master=Tru
                'nb_spectra_stacked':nb_spectra_stacked,
                'arcfiles':name_root_files} 
         
-        save_pickle(directory+'/Stacked_spectrum_bin_'+str(bin_length)+'.'+date_name+'.p',out)
+        if len(group)!=len(files_to_process):
+            save_pickle(directory+'/Stacked_spectrum_bin_'+str(bin_length)+'.'+date_name+'.p',out)
+        else:
+            save_pickle(directory+'/Prepared_'+files_to_process[num].split('/')[-1],out)
     
     all_snr = np.array(all_snr)
 
